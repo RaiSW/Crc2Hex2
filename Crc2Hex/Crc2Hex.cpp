@@ -2,6 +2,7 @@
 #include <string>
 #include <fstream>
 #include "lib.h"
+#include "IntelHex.h"
 
 using namespace std;
 
@@ -26,6 +27,9 @@ int main(int argc, char** argv)
     bool bHelp = false;
     string fileName = "";
     string cfgFile = "";
+    string s;
+    char* mem = NULL;
+    IntelHex iHex;
 
 
     cout << "CRC Builder for Intel-Hex-Files V" << to_string(PRG_VERSION);
@@ -67,6 +71,25 @@ int main(int argc, char** argv)
             ifile.open(fileName);
             if (ifile)
             {
+                mem = new char[FLASH_SIZE];
+                memset(mem, 0xff, FLASH_SIZE);
+                int err = 0;
+                int line = 0;
+                while (getline(ifile, s))
+                {
+                    err = iHex.writeToMem(mem,FLASH_SIZE, s);
+                    line++;
+                    if (err != 0)
+                    {
+                        break;
+                    }
+                }
+                ifile.close();
+                if (err)
+                {
+                    cout << "Error: file \"" << fileName.c_str() << "\" Intel-Hex format corrupt" << endl;
+                    cout << "in line: " << s << endl;
+                }
                 
             }
             else
@@ -79,8 +102,11 @@ int main(int argc, char** argv)
     }
     else
     {
-        cout << "Error: please call \"Crc2Hex.exe <filename.hex> [\c:cfgfile] [quiet] [help]\"" << endl;
+        cout << "Error: please call \"Crc2Hex.exe <filename.hex> [cfgfile] [quiet] [help]\"" << endl;
     }
+    
+    cout << "MaxAdr: " << iHex.MaxAddress() << endl;
+    
     return result;
 
 }
@@ -89,8 +115,8 @@ void writeHelp(void)
 {
     // Ausgabe der Helpinformationen
     cout << endl;
-    cout << "call \"Crc2Hex.exe <filename.hex> [\c:cfgfile] [quiet] [help]\"" << endl << endl;
-    cout << "[\c:cfgfile] configuration file" << endl;
+    cout << "call \"Crc2Hex.exe <filename.hex> [cfgfile] [quiet] [help]\"" << endl << endl;
+    cout << "[cfgfile] configuration file" << endl;
     cout << "[quiet] no output of additional information like checksum and program length" << endl;
     cout << "[help]  output of this help" << endl;
 }
