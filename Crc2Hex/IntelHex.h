@@ -26,4 +26,5 @@ public:
 #define INTHEX_TXT_AFTER_END_ERR  4
 #define INTHEX_MEM_ERR            5
 #define INTHEX_FILE_NOT_FOUND     6
+#define INTHEX_UNVALID_RECORD     7
 

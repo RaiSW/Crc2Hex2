@@ -10,7 +10,10 @@ using namespace std;
 #define SUB_VERSION     1
 #define SUB_SUB_VERSION 0
 
-#define FLASH_SIZE 0x100000
+#define LIC_1 "Bosch_Rexroth_AG_Hannover_Marine"
+#define LIC_2 "Bosch_Rexroth_AG_Hannover_Mar_02"
+
+#define FLASH_SIZE           0x100000
 #define OFFS_FLASH_START     56
 #define OFFS_FLASH_END       60
 #define OFFS_FLASH_GAP_START 64
@@ -18,7 +21,22 @@ using namespace std;
 #define OFFS_ADD32           72
 #define OFFS_CRC16           76
 
+struct sIntHexData {
+    int32_t  dataAdr     = 0;  // Address of data structure in memory
+    uint16_t uiCRC16     = 0;  // CRC16 checksum of HEX-File
+    uint32_t ulAdd32     = 0;  // Add32 checksum of HEX-File
+    int16_t noOfLicenses = 0;
+    string licenses[3]{};      // License list
+    int16_t foundLicNo   = -1; // founded license string
+                        // GAP list
+    char* mem{ NULL };
+    int32_t memSize = 0;
+    int32_t maxFlashAdr = 0;
+};
+
+
 void writeHelp(void);
+bool findLicense(sIntHexData &data);
 
 int main(int argc, char** argv)
 {
@@ -28,9 +46,13 @@ int main(int argc, char** argv)
     string fileName = "";
     string cfgFile = "";
     string s;
-    char* mem = NULL;
     IntelHex iHex;
-
+    sIntHexData data;
+    
+    data.noOfLicenses = 2;
+    data.licenses[0] = LIC_1;
+    data.licenses[1] = LIC_2;
+    data.memSize = FLASH_SIZE;
 
     cout << "CRC Builder for Intel-Hex-Files V" << to_string(PRG_VERSION);
     cout << "." << to_string(SUB_VERSION) << "." << to_string(SUB_SUB_VERSION) << endl;
@@ -66,36 +88,51 @@ int main(int argc, char** argv)
         }
         else
         {
-            /* File bearbeiten */
+            /* read Intel-Hex file */
             ifstream ifile;
             ifile.open(fileName);
             if (ifile)
             {
-                mem = new char[FLASH_SIZE];
-                memset(mem, 0xff, FLASH_SIZE);
+                data.mem = new char[data.memSize];
+                memset(data.mem, 0xff, data.memSize);
                 int err = 0;
                 int line = 0;
                 while (getline(ifile, s))
                 {
-                    err = iHex.writeToMem(mem,FLASH_SIZE, s);
+                    err = iHex.writeToMem(data.mem, data.memSize, s);
                     line++;
-                    if (err != 0)
+                    if (err != INTHEX_OK)
                     {
+                        cout << "Error: corrupt Intel-Hex-File. Error result " << err << endl;
+                        cout << "in line: " << s << endl;
                         break;
                     }
                 }
                 ifile.close();
-                if (err)
+                if (err == INTHEX_OK)
                 {
-                    cout << "Error: file \"" << fileName.c_str() << "\" Intel-Hex format corrupt" << endl;
-                    cout << "in line: " << s << endl;
+                    data.maxFlashAdr = iHex.MaxAddress();
+                    data.dataAdr = 0;
+                    // search for licence
+                    if (findLicense(data))
+                    {
+                        
+                        //generateAdrList();
+                            
+                    }
+                    else
+                    {
+                        cout << "Error: Licence key in source file is missing!" << endl;
+                    }
                 }
                 
+                delete[] data.mem; // release memory
             }
             else
             {
                 cout << "Error: file \"" << fileName.c_str() << "\" don't exist!" << endl;
             }
+            
         }
 
 
@@ -119,4 +156,34 @@ void writeHelp(void)
     cout << "[cfgfile] configuration file" << endl;
     cout << "[quiet] no output of additional information like checksum and program length" << endl;
     cout << "[help]  output of this help" << endl;
+}
+
+bool findLicense(sIntHexData &data)
+{
+    bool bFound = false;
+    int32_t licenseNo = data.noOfLicenses-1;
+    int32_t len;
+    int32_t p;
+    while (!bFound && licenseNo >= 0)
+    {
+        len = (int32_t)data.licenses[licenseNo].length();
+        for (p = 0; p < (data.maxFlashAdr - len); p++)
+        {
+            if (!memcmp(data.mem + p, (char*)data.licenses[licenseNo].c_str(), len))
+            {
+                bFound = true;
+                break;
+            }
+        }
+        licenseNo--;
+    }
+    if (bFound)
+    {
+        data.dataAdr = p;
+        data.foundLicNo = licenseNo + 1;
+    }
+    else
+        data.foundLicNo = -1;
+
+    return bFound;
 }
