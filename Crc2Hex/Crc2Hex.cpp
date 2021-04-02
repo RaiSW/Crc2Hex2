@@ -3,6 +3,7 @@
 #include <fstream>
 #include "lib.h"
 #include "IntelHex.h"
+#include "memgap.h"
 
 using namespace std;
 
@@ -28,8 +29,8 @@ struct sIntHexData {
     int16_t noOfLicenses = 0;
     string licenses[3]{};      // License list
     int16_t foundLicNo   = -1; // founded license string
-                        // GAP list
-    char* mem{ NULL };
+    MemGap memList;            // GAP list
+    char* mem { NULL };
     int32_t memSize = 0;
     int32_t maxFlashAdr = 0;
 };
@@ -116,8 +117,13 @@ int main(int argc, char** argv)
                     // search for licence
                     if (findLicense(data))
                     {
-                        
-                        //generateAdrList();
+                        // generateAdrList
+                        data.memList.Init(*(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_START),
+                                          *(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_END));
+                        data.memList.Add(*(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_GAP_START),
+                                         *(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_GAP_END));
+                        data.memList.Add(data.dataAdr + OFFS_ADD32, data.dataAdr + OFFS_ADD32 + 5);
+
                             
                     }
                     else

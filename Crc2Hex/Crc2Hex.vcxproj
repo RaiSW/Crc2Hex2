@@ -142,10 +142,12 @@
     <ClCompile Include="Crc2Hex.cpp" />
     <ClCompile Include="IntelHex.cpp" />
     <ClCompile Include="lib.cpp" />
+    <ClCompile Include="MemGap.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="IntelHex.h" />
     <ClInclude Include="lib.h" />
+    <ClInclude Include="MemGap.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

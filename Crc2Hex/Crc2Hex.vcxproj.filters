@@ -24,12 +24,18 @@
     <ClCompile Include="IntelHex.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
+    <ClCompile Include="MemGap.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="IntelHex.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
     <ClInclude Include="lib.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="MemGap.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
   </ItemGroup>
