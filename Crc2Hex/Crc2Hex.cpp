@@ -4,6 +4,7 @@
 #include "lib.h"
 #include "IntelHex.h"
 #include "memgap.h"
+#include "CRC16.h"
 
 using namespace std;
 
@@ -49,6 +50,7 @@ int main(int argc, char** argv)
     string s;
     IntelHex iHex;
     sIntHexData data;
+    CRC16 crc16;
     
     data.noOfLicenses = 2;
     data.licenses[0] = LIC_1;
@@ -123,8 +125,22 @@ int main(int argc, char** argv)
                         data.memList.Add(*(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_GAP_START),
                                          *(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_GAP_END));
                         data.memList.Add(data.dataAdr + OFFS_ADD32, data.dataAdr + OFFS_ADD32 + 5);
+                        
+                        // Über alle Elemente der Speicherbereichsliste
+                        for (uint16_t i = 0; i < data.memList.Size(); i++)
+                        {
+                            // CRC16-Summe bilden
+                            data.uiCRC16 = crc16.Add((uint8_t *)(data.mem + data.memList.Start(i)),
+                                (uint8_t*)(data.mem + data.memList.End(i)));
+                            // ADD16-Summe bilden
+                            //pData->ulADD16 = clAdd16.Add((unsigned short*)(mem + cMemList.Start(i)),
+                            //    (unsigned short*)(mem + cMemList.End(i)));
+                        }
 
-                            
+                        cout << "calculated checksums" << endl;
+                        cout << "  CRC16:  0x" << hex << uppercase << data.uiCRC16 << endl;
+                        cout << "  ADD32:  0x" << hex << uppercase << data.ulAdd32 << endl;
+                        cout << "  MaxAdr: " << dec << iHex.MaxAddress() << endl;
                     }
                     else
                     {
@@ -148,7 +164,7 @@ int main(int argc, char** argv)
         cout << "Error: please call \"Crc2Hex.exe <filename.hex> [cfgfile] [quiet] [help]\"" << endl;
     }
     
-    cout << "MaxAdr: " << iHex.MaxAddress() << endl;
+    
     
     return result;
 
