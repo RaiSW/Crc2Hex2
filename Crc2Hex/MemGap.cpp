@@ -12,9 +12,9 @@ void MemGap::Init(uint32_t ulStart, uint32_t ulEnd)
 	vMemRangeList.push_back(fullMemRange);
 }
 
-uint16_t MemGap::Size(void)
+uint32_t MemGap::Size(void)
 {
-	return(vMemRangeList.size());
+	return((uint32_t)vMemRangeList.size());
 }
 
 uint32_t MemGap::Start(uint16_t index)

@@ -46,7 +46,8 @@ int main(int argc, char** argv)
     int result = 1;
     bool bQuiet = false;
     bool bHelp = false;
-    string fileName = "";
+    string fileSrc = "";
+    string fileDst = "";
     string cfgFile = "";
     string s;
     IntelHex iHex;
@@ -83,7 +84,7 @@ int main(int argc, char** argv)
             }
             else
             {
-                fileName = argv[i];
+                fileSrc = argv[i];
             }
         }
         if (bHelp)
@@ -95,7 +96,7 @@ int main(int argc, char** argv)
         {
             /* read Intel-Hex file */
             ifstream ifile;
-            ifile.open(fileName);
+            ifile.open(fileSrc);
             if (ifile)
             {
                 data.mem = new char[data.memSize];
@@ -143,6 +144,23 @@ int main(int argc, char** argv)
                         cout << "  CRC16:  0x" << hex << uppercase << data.uiCRC16 << endl;
                         cout << "  ADD32:  0x" << hex << uppercase << data.ulAdd32 << endl;
                         cout << "  MaxAdr: " << dec << iHex.MaxAddress() << endl;
+
+                        uint16_t i = (uint16_t)fileSrc.find_last_of('.');
+                        // create filename for destination (Hex-Filename + CRC-Checksum)
+                        fileDst = fileSrc.substr(0, i) + "_"
+                            + int2hex(data.uiCRC16)
+                            + fileSrc.substr(i,fileSrc.length()-i);
+                        // copy file
+                        ifstream src(fileSrc, ios::binary);
+                        ofstream dst(fileDst, ios::binary);
+                        dst << src.rdbuf();
+                        src.close();
+                        dst.close();
+
+                        iHex.writeToFile(fileDst, data.dataAdr + OFFS_CRC16, data.uiCRC16, HIGH_BYTE_FIRST);
+                        iHex.writeToFile(fileDst, data.dataAdr + OFFS_ADD32, data.ulAdd32, HIGH_BYTE_FIRST);
+
+                        cout << "Write: " << fileDst << endl;
                     }
                     else
                     {
@@ -154,7 +172,7 @@ int main(int argc, char** argv)
             }
             else
             {
-                cout << "Error: file \"" << fileName.c_str() << "\" don't exist!" << endl;
+                cout << "Error: file \"" << fileSrc.c_str() << "\" don't exist!" << endl;
             }
             
         }

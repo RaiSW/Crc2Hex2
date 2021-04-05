@@ -17,7 +17,7 @@ private:
 public:
 	MemGap(void);
 	void Init(uint32_t ulStart, uint32_t ulEnd);
-	uint16_t Size(void);
+	uint32_t Size(void);
 	uint32_t Start(uint16_t index);
 	uint32_t End(uint16_t index);
 	void Add(uint32_t ulStart, uint32_t ulEnd);

@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include "lib.h"
 
 using namespace std;
@@ -67,4 +68,26 @@ int hexLn2IntLn(char* cSource, unsigned char* cDest, int iLen)
 		}
 	}
 	return iResult;
+}
+
+// convert int to hex
+string int2hex(const int32_t val)
+{
+	stringstream ss;
+	string s;
+	ss << hex << uppercase << val;
+	s = ss.str();
+	if ((s.length() % 2) != 0)
+		s = '0' + s;
+	return s;
+}
+
+string intLn2HexLn(uint8_t* cSource, int iLen)
+{
+	string s;
+	for (int16_t i = 0; i < iLen; i++)
+	{
+		s = s + int2hex(cSource[i]);
+	}
+	return s;
 }
