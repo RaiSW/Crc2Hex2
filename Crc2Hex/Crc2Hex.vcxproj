@@ -139,6 +139,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AddChecksum.cpp" />
     <ClCompile Include="CRC16.cpp" />
     <ClCompile Include="Crc2Hex.cpp" />
     <ClCompile Include="IntelHex.cpp" />
@@ -146,6 +147,7 @@
     <ClCompile Include="MemGap.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AddChecksum.h" />
     <ClInclude Include="CRC16.h" />
     <ClInclude Include="IntelHex.h" />
     <ClInclude Include="lib.h" />

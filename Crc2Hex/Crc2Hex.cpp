@@ -5,6 +5,7 @@
 #include "IntelHex.h"
 #include "memgap.h"
 #include "CRC16.h"
+#include "AddChecksum.h"
 
 using namespace std;
 
@@ -51,6 +52,7 @@ int main(int argc, char** argv)
     IntelHex iHex;
     sIntHexData data;
     CRC16 crc16;
+    AddChecksum chksum16;
     
     data.noOfLicenses = 2;
     data.licenses[0] = LIC_1;
@@ -126,15 +128,15 @@ int main(int argc, char** argv)
                                          *(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_GAP_END));
                         data.memList.Add(data.dataAdr + OFFS_ADD32, data.dataAdr + OFFS_ADD32 + 5);
                         
-                        // Über alle Elemente der Speicherbereichsliste
+                        // Calculate checksum over all elements of address list
                         for (uint16_t i = 0; i < data.memList.Size(); i++)
                         {
                             // CRC16-Summe bilden
                             data.uiCRC16 = crc16.Add((uint8_t *)(data.mem + data.memList.Start(i)),
                                 (uint8_t*)(data.mem + data.memList.End(i)));
                             // ADD16-Summe bilden
-                            //pData->ulADD16 = clAdd16.Add((unsigned short*)(mem + cMemList.Start(i)),
-                            //    (unsigned short*)(mem + cMemList.End(i)));
+                            data.ulAdd32 = chksum16.Add((uint16_t*)(data.mem + data.memList.Start(i)),
+                                (uint16_t*)(data.mem + data.memList.End(i)));
                         }
 
                         cout << "calculated checksums" << endl;
