@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <iomanip>
 #include "lib.h"
 #include "IntelHex.h"
 #include "memgap.h"
@@ -46,6 +47,7 @@ int main(int argc, char** argv)
     int result = 1;
     bool bQuiet = false;
     bool bHelp = false;
+    bool bParaErr = false;
     string fileSrc = "";
     string fileDst = "";
     string cfgFile = "";
@@ -66,138 +68,147 @@ int main(int argc, char** argv)
 
     if (argc >= 2)
     {   // es muss mindestens 1 Argument übergeben werden
-        for (int i = 1; i < argc; i++)
+        fileSrc = argv[1];
+        for (int i = 2; i < argc; i++)
         {
             string cmd = UCase(argv[i]);
             if (cmd == "QUIET")
-            {
                 bQuiet = true;
-            }
             else if (cmd == "HELP")
-            {
                 bHelp = true;
-            }
-            else if (cmd.length() >= 3 && cmd.substr(0, 2) == "C:")
+            else if (cmd.length() >= 4 && cmd.substr(0, 3) == "-c/")
             {
                 cfgFile = argv[i];
-                cfgFile = cfgFile.substr(2, cfgFile.length() - 2);
+                cfgFile = cfgFile.substr(3, cfgFile.length() - 3);
             }
             else
             {
-                fileSrc = argv[i];
+                bParaErr = true;
+                break;
             }
         }
-        if (bHelp)
+    }
+    else
+        bParaErr = true;
+
+    if (!bParaErr && !bQuiet)
+    {
+        /* read Intel-Hex file */
+        ifstream ifile;
+        ifile.open(fileSrc);
+        if (ifile)
         {
-            // Ausgabe des Hilfetextes
-            writeHelp();
+            // Allocation of memory and fill with 0xff
+            data.mem = new char[data.memSize];
+            memset(data.mem, 0xff, data.memSize);
+            int err = 0;
+            int line = 0;
+            // read Hex-File, evaluate, and store it as binary in memory
+            while (getline(ifile, s))
+            {
+                err = iHex.writeToMem(data.mem, data.memSize, s);
+                line++;
+                if (err != INTHEX_OK)
+                {
+                    cout << "Error: corrupt Intel-Hex-File. Error result " << err << endl;
+                    cout << "in line: " << s << endl;
+                    break;
+                }
+            }
+            ifile.close();
+            
+            if (err == INTHEX_OK)
+            {
+                data.maxFlashAdr = iHex.MaxAddress();
+                data.dataAdr = 0;
+                // search for licence and set begin of data structure (dataAdr)
+                if (findLicense(data))
+                {
+                    // generate address list
+                    data.memList.Init(*(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_START),
+                        *(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_END));
+                    data.memList.Add(*(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_GAP_START),
+                        *(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_GAP_END));
+                    data.memList.Add(data.dataAdr + OFFS_ADD32, data.dataAdr + OFFS_ADD32 + 5);
+
+                    // Calculate checksum over all elements of address list
+                    cout << "used address ranges:" << endl;
+                    cout << "    [start]  -   [end]" << endl;
+                    for (uint16_t i = 0; i < data.memList.Size(); i++)
+                    {
+                        uint32_t ulStart = data.memList.Start(i);
+                        uint32_t ulEnd   = data.memList.End(i);
+                        // CRC16-Summe bilden
+                        data.uiCRC16 = crc16.Add((uint8_t *)(data.mem + ulStart), (uint8_t*)(data.mem + ulEnd));
+                        // ADD16-Summe bilden
+                        data.ulAdd32 = chksum16.Add((uint16_t*)(data.mem + ulStart), (uint16_t*)(data.mem + ulEnd));
+                        //cout << "  " << setfill('0') << ulStart << " - " << ulEnd << endl;
+                        cout << hex << uppercase;
+                        cout << "  0x" << setw(8) << setfill('0') << ulStart;
+                        cout << " - 0x" << setw(8) << setfill('0') << ulEnd << endl;
+                    }
+
+                    //todo Ausgabe mit quiet verknüpfen und ungülte ÜBergabeparameter prüfen
+
+                    cout << endl;
+                    cout << "calculated checksums:" << endl;
+                    cout << "  CRC16:  0x" << hex << uppercase << data.uiCRC16 << endl;
+                    cout << "  ADD32:  0x" << hex << uppercase << data.ulAdd32 << endl;
+                    cout << "  MaxAdr: 0x" << hex << uppercase << iHex.MaxAddress();
+                    cout << " (" << dec << iHex.MaxAddress() << ")" << endl;
+
+                    uint16_t i = (uint16_t)fileSrc.find_last_of('.');
+                    // create filename for destination (Hex-Filename + CRC-Checksum)
+                    fileDst = fileSrc.substr(0, i) + "_"
+                        + int2hex(data.uiCRC16)
+                        + fileSrc.substr(i, fileSrc.length() - i);
+                    // copy file
+                    ifstream src(fileSrc, ios::binary);
+                    ofstream dst(fileDst, ios::binary);
+                    dst << src.rdbuf();
+                    src.close();
+                    dst.close();
+
+                    // Write CRC-Checksum and ADD-Checksum in destination file
+                    iHex.writeToFile(fileDst, data.dataAdr + OFFS_CRC16, data.uiCRC16, HIGH_BYTE_FIRST);
+                    iHex.writeToFile(fileDst, data.dataAdr + OFFS_ADD32, data.ulAdd32, HIGH_BYTE_FIRST);
+
+                    cout << endl << "Write: " << fileDst << endl;
+                }
+                else
+                {
+                    cout << "Error: Licence key in source file is missing!" << endl;
+                }
+            }
+
+            delete[] data.mem; // release memory
         }
         else
         {
-            /* read Intel-Hex file */
-            ifstream ifile;
-            ifile.open(fileSrc);
-            if (ifile)
-            {
-                data.mem = new char[data.memSize];
-                memset(data.mem, 0xff, data.memSize);
-                int err = 0;
-                int line = 0;
-                while (getline(ifile, s))
-                {
-                    err = iHex.writeToMem(data.mem, data.memSize, s);
-                    line++;
-                    if (err != INTHEX_OK)
-                    {
-                        cout << "Error: corrupt Intel-Hex-File. Error result " << err << endl;
-                        cout << "in line: " << s << endl;
-                        break;
-                    }
-                }
-                ifile.close();
-                if (err == INTHEX_OK)
-                {
-                    data.maxFlashAdr = iHex.MaxAddress();
-                    data.dataAdr = 0;
-                    // search for licence
-                    if (findLicense(data))
-                    {
-                        // generateAdrList
-                        data.memList.Init(*(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_START),
-                                          *(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_END));
-                        data.memList.Add(*(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_GAP_START),
-                                         *(uint32_t*)(data.mem + data.dataAdr + OFFS_FLASH_GAP_END));
-                        data.memList.Add(data.dataAdr + OFFS_ADD32, data.dataAdr + OFFS_ADD32 + 5);
-                        
-                        // Calculate checksum over all elements of address list
-                        for (uint16_t i = 0; i < data.memList.Size(); i++)
-                        {
-                            // CRC16-Summe bilden
-                            data.uiCRC16 = crc16.Add((uint8_t *)(data.mem + data.memList.Start(i)),
-                                (uint8_t*)(data.mem + data.memList.End(i)));
-                            // ADD16-Summe bilden
-                            data.ulAdd32 = chksum16.Add((uint16_t*)(data.mem + data.memList.Start(i)),
-                                (uint16_t*)(data.mem + data.memList.End(i)));
-                        }
-
-                        cout << "calculated checksums" << endl;
-                        cout << "  CRC16:  0x" << hex << uppercase << data.uiCRC16 << endl;
-                        cout << "  ADD32:  0x" << hex << uppercase << data.ulAdd32 << endl;
-                        cout << "  MaxAdr: " << dec << iHex.MaxAddress() << endl;
-
-                        uint16_t i = (uint16_t)fileSrc.find_last_of('.');
-                        // create filename for destination (Hex-Filename + CRC-Checksum)
-                        fileDst = fileSrc.substr(0, i) + "_"
-                            + int2hex(data.uiCRC16)
-                            + fileSrc.substr(i,fileSrc.length()-i);
-                        // copy file
-                        ifstream src(fileSrc, ios::binary);
-                        ofstream dst(fileDst, ios::binary);
-                        dst << src.rdbuf();
-                        src.close();
-                        dst.close();
-
-                        iHex.writeToFile(fileDst, data.dataAdr + OFFS_CRC16, data.uiCRC16, HIGH_BYTE_FIRST);
-                        iHex.writeToFile(fileDst, data.dataAdr + OFFS_ADD32, data.ulAdd32, HIGH_BYTE_FIRST);
-
-                        cout << "Write: " << fileDst << endl;
-                    }
-                    else
-                    {
-                        cout << "Error: Licence key in source file is missing!" << endl;
-                    }
-                }
-                
-                delete[] data.mem; // release memory
-            }
-            else
-            {
-                cout << "Error: file \"" << fileSrc.c_str() << "\" don't exist!" << endl;
-            }
-            
+            cout << "Error: Can't open file \"" << fileSrc.c_str() << "\"!" << endl;
         }
-
-
     }
     else
     {
-        cout << "Error: please call \"Crc2Hex.exe <filename.hex> [cfgfile] [quiet] [help]\"" << endl;
+        if (bParaErr)
+        {
+            cout << "Calling Error: Please consider the following usage!" << endl;
+            result = -1;
+        }
+        // Ausgabe des Hilfetextes
+        writeHelp();
     }
-    
-    
-    
+     
     return result;
-
 }
 
 void writeHelp(void)
 {
     // Ausgabe der Helpinformationen
-    cout << endl;
-    cout << "call \"Crc2Hex.exe <filename.hex> [cfgfile] [quiet] [help]\"" << endl << endl;
+    cout << "call \"Crc2Hex.exe <filename.hex> [-c/cfgfile] [quiet] [help]\"" << endl << endl;
     cout << "[cfgfile] configuration file" << endl;
-    cout << "[quiet] no output of additional information like checksum and program length" << endl;
-    cout << "[help]  output of this help" << endl;
+    cout << "[quiet]   no output of additional information like checksum and program length" << endl;
+    cout << "[help]    output of this help" << endl;
 }
 
 bool findLicense(sIntHexData &data)
